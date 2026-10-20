@@ -1,13 +1,121 @@
 <!doctype html>
-<html lang="en">
+<html lang="uk">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>recipe-catalog</title>
+    <meta
+      name="description"
+      content="Знаходьте смачні рецепти, переглядайте інгредієнти та готуйте улюблені страви."
+    />
+    <meta name="robots" content="index, follow" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Смачний Каталог — Пошук рецептів" />
+    <meta
+      property="og:description"
+      content="Каталог рецептів для натхнення на кожен день."
+    />
+    <meta name="theme-color" content="#f8f7f2" />
+    <title>Смачний Каталог — Пошук рецептів</title>
   </head>
   <body>
-    <div id="app"></div>
+    <a class="skip-link" href="#main-content">Перейти до основного вмісту</a>
+
+    <header class="site-header">
+      <div class="page-shell site-header__inner">
+        <a class="brand" href="/" aria-label="Смачний Каталог — на головну">
+          <span class="brand__icon" aria-hidden="true">✦</span>
+          <span>Смачний Каталог</span>
+        </a>
+        <button
+          class="button button--outline"
+          id="theme-toggle"
+          type="button"
+          aria-pressed="false"
+        >
+          Темна тема
+        </button>
+      </div>
+    </header>
+
+    <main id="main-content" class="page-shell">
+      <section class="intro" aria-labelledby="page-title">
+        <p class="eyebrow">Ідеї для вашої кухні</p>
+        <h1 id="page-title">Знайдіть свій наступний улюблений рецепт</h1>
+        <p class="intro__description">
+          Переглядайте страви, обирайте інгредієнти та надихайтеся на приготування.
+        </p>
+      </section>
+
+      <section class="catalog" aria-labelledby="catalog-title">
+        <h2 class="visually-hidden" id="catalog-title">Каталог рецептів</h2>
+        <form class="controls" id="recipe-controls" role="search">
+          <div class="control control--search">
+            <label for="recipe-search">Пошук за назвою</label>
+            <input
+              id="recipe-search"
+              name="search"
+              type="search"
+              placeholder="Наприклад, паста"
+              autocomplete="off"
+            />
+          </div>
+          <div class="control">
+            <label for="difficulty-filter">Складність</label>
+            <select id="difficulty-filter" name="difficulty">
+              <option value="">Будь-яка</option>
+              <option value="Easy">Легка</option>
+              <option value="Medium">Середня</option>
+              <option value="Hard">Висока</option>
+            </select>
+          </div>
+          <div class="control">
+            <label for="sort-recipes">Сортувати</label>
+            <select id="sort-recipes" name="sort">
+              <option value="recommended">Рекомендовані</option>
+              <option value="rating">За рейтингом</option>
+              <option value="name">За назвою</option>
+              <option value="prep-time">За часом</option>
+            </select>
+          </div>
+        </form>
+
+        <div id="loading-state" class="status-card" role="status" aria-live="polite">
+          <span class="loading-spinner" aria-hidden="true"></span>
+          <span>Завантажуємо рецепти…</span>
+        </div>
+        <div id="error-state" class="status-card status-card--error" role="alert" hidden>
+          <p id="error-message">Не вдалося завантажити рецепти.</p>
+          <button class="button button--primary" id="retry-button" type="button">
+            Спробувати ще раз
+          </button>
+        </div>
+        <p id="results-summary" class="results-summary" aria-live="polite"></p>
+        <div id="recipe-grid" class="recipe-grid" aria-live="polite" aria-busy="false"></div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <div class="page-shell">
+        <p>Смачний Каталог · Рецепти для натхнення щодня</p>
+      </div>
+    </footer>
+
+    <dialog class="recipe-dialog" id="recipe-dialog" aria-labelledby="dialog-title">
+      <div class="recipe-dialog__header">
+        <h2 id="dialog-title"></h2>
+        <button
+          class="button button--icon"
+          id="dialog-close"
+          type="button"
+          aria-label="Закрити рецепт"
+        >
+          <span aria-hidden="true">×</span>
+        </button>
+      </div>
+      <div class="recipe-dialog__content" id="dialog-content"></div>
+    </dialog>
+
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

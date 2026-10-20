@@ -1,60 +1,193 @@
 import './style.css'
-import heroImg from './assets/hero.png'
-import typescriptLogo from './assets/typescript.svg'
-import viteLogo from './assets/vite.svg'
-import { setupCounter } from './counter.ts'
+import { fetchRecipes } from './api'
+import type { Recipe } from './types'
 
-document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
-<section id="center">
-  <div class="hero">
-    <img src="${heroImg}" class="base" width="170" height="179">
-    <img src="${typescriptLogo}" class="framework" alt="TypeScript logo"/>
-    <img src="${viteLogo}" class="vite" alt="Vite logo" />
-  </div>
-  <div>
-    <h1>Get started</h1>
-    <p>Edit <code>src/main.ts</code> and save to test <code>HMR</code></p>
-  </div>
-  <button id="counter" type="button" class="counter"></button>
-</section>
+const recipeGrid = getElement<HTMLDivElement>('#recipe-grid')
+const recipeControls = getElement<HTMLFormElement>('#recipe-controls')
+const loadingState = getElement<HTMLDivElement>('#loading-state')
+const errorState = getElement<HTMLDivElement>('#error-state')
+const errorMessage = getElement<HTMLParagraphElement>('#error-message')
+const searchInput = getElement<HTMLInputElement>('#recipe-search')
+const difficultyFilter = getElement<HTMLSelectElement>('#difficulty-filter')
+const sortSelect = getElement<HTMLSelectElement>('#sort-recipes')
+const themeToggle = getElement<HTMLButtonElement>('#theme-toggle')
+const recipeDialog = getElement<HTMLDialogElement>('#recipe-dialog')
+const dialogContent = getElement<HTMLDivElement>('#dialog-content')
+const resultsSummary = getElement<HTMLParagraphElement>('#results-summary')
 
-<div class="ticks"></div>
+let recipes: Recipe[] = []
 
-<section id="next-steps">
-  <div id="docs">
-    <svg class="icon" role="presentation" aria-hidden="true"><use href="/icons.svg#documentation-icon"></use></svg>
-    <h2>Documentation</h2>
-    <p>Your questions, answered</p>
-    <ul>
-      <li>
-        <a href="https://vite.dev/" target="_blank">
-          <img class="logo" src="${viteLogo}" alt="" />
-          Explore Vite
-        </a>
-      </li>
-      <li>
-        <a href="https://www.typescriptlang.org" target="_blank">
-          <img class="button-icon" src="${typescriptLogo}" alt="">
-          Learn more
-        </a>
-      </li>
-    </ul>
-  </div>
-  <div id="social">
-    <svg class="icon" role="presentation" aria-hidden="true"><use href="/icons.svg#social-icon"></use></svg>
-    <h2>Connect with us</h2>
-    <p>Join the Vite community</p>
-    <ul>
-      <li><a href="https://github.com/vitejs/vite" target="_blank"><svg class="button-icon" role="presentation" aria-hidden="true"><use href="/icons.svg#github-icon"></use></svg>GitHub</a></li>
-      <li><a href="https://chat.vite.dev/" target="_blank"><svg class="button-icon" role="presentation" aria-hidden="true"><use href="/icons.svg#discord-icon"></use></svg>Discord</a></li>
-      <li><a href="https://x.com/vite_js" target="_blank"><svg class="button-icon" role="presentation" aria-hidden="true"><use href="/icons.svg#x-icon"></use></svg>X.com</a></li>
-      <li><a href="https://bsky.app/profile/vite.dev" target="_blank"><svg class="button-icon" role="presentation" aria-hidden="true"><use href="/icons.svg#bluesky-icon"></use></svg>Bluesky</a></li>
-    </ul>
-  </div>
-</section>
+function getElement<T extends HTMLElement>(selector: string): T {
+  const element = document.querySelector<T>(selector)
+  if (!element) {
+    throw new Error(`Required page element not found: ${selector}`)
+  }
 
-<div class="ticks"></div>
-<section id="spacer"></section>
-`
+  return element
+}
 
-setupCounter(document.querySelector<HTMLButtonElement>('#counter')!)
+function createTextElement<K extends keyof HTMLElementTagNameMap>(
+  tag: K,
+  className: string,
+  text: string,
+): HTMLElementTagNameMap[K] {
+  const element = document.createElement(tag)
+  element.className = className
+  element.textContent = text
+  return element
+}
+
+function renderRecipeCard(recipe: Recipe): HTMLElement {
+  const article = document.createElement('article')
+  article.className = 'recipe-card'
+
+  const image = document.createElement('img')
+  image.className = 'recipe-card__image'
+  image.src = recipe.image
+  image.alt = `Страва: ${recipe.name}`
+  image.loading = 'lazy'
+
+  const content = document.createElement('div')
+  content.className = 'recipe-card__content'
+  content.append(
+    createTextElement('h3', 'recipe-card__title', recipe.name),
+    createTextElement(
+      'p',
+      'recipe-card__meta',
+      `${recipe.cuisine} · ${recipe.difficulty} · ${recipe.prepTimeMinutes + recipe.cookTimeMinutes} хв`,
+    ),
+    createTextElement(
+      'p',
+      'recipe-card__rating',
+      `★ ${recipe.rating.toFixed(1)} · ${recipe.reviewCount} відгуків`,
+    ),
+  )
+
+  const viewButton = document.createElement('button')
+  viewButton.className = 'button button--text'
+  viewButton.type = 'button'
+  viewButton.textContent = 'Переглянути рецепт'
+  viewButton.setAttribute('aria-label', `Переглянути рецепт: ${recipe.name}`)
+  viewButton.addEventListener('click', () => showRecipeDetails(recipe))
+  content.append(viewButton)
+
+  article.append(image, content)
+  return article
+}
+
+function showRecipeDetails(recipe: Recipe): void {
+  dialogContent.replaceChildren()
+  dialogContent.append(
+    createTextElement('p', 'recipe-dialog__meta', `${recipe.cuisine} · ${recipe.difficulty}`),
+    createTextElement('p', 'recipe-dialog__meta', `Порції: ${recipe.servings}`),
+    createTextElement(
+      'p',
+      'recipe-dialog__meta',
+      `Підготовка: ${recipe.prepTimeMinutes} хв · Приготування: ${recipe.cookTimeMinutes} хв`,
+    ),
+    createTextElement('h3', 'recipe-dialog__heading', 'Інгредієнти'),
+  )
+
+  const ingredients = document.createElement('ul')
+  recipe.ingredients.forEach((ingredient) => {
+    ingredients.append(createTextElement('li', '', ingredient))
+  })
+  dialogContent.append(ingredients, createTextElement('h3', 'recipe-dialog__heading', 'Приготування'))
+
+  const instructions = document.createElement('ol')
+  recipe.instructions.forEach((instruction) => {
+    instructions.append(createTextElement('li', '', instruction))
+  })
+  dialogContent.append(
+    instructions,
+    createTextElement('p', 'recipe-dialog__meta', `Калорій на порцію: ${recipe.caloriesPerServing} ккал`),
+  )
+
+  getElement<HTMLHeadingElement>('#dialog-title').textContent = recipe.name
+  recipeDialog.showModal()
+}
+
+function renderRecipes(): void {
+  const query = searchInput.value.trim().toLocaleLowerCase('uk')
+  const selectedDifficulty = difficultyFilter.value
+  const visibleRecipes = recipes
+    .filter((recipe) => recipe.name.toLocaleLowerCase('uk').includes(query))
+    .filter((recipe) => !selectedDifficulty || recipe.difficulty === selectedDifficulty)
+
+  switch (sortSelect.value) {
+    case 'rating':
+      visibleRecipes.sort((a, b) => b.rating - a.rating)
+      break
+    case 'name':
+      visibleRecipes.sort((a, b) => a.name.localeCompare(b.name, 'uk'))
+      break
+    case 'prep-time':
+      visibleRecipes.sort(
+        (a, b) =>
+          a.prepTimeMinutes + a.cookTimeMinutes - (b.prepTimeMinutes + b.cookTimeMinutes),
+      )
+      break
+  }
+
+  recipeGrid.replaceChildren(...visibleRecipes.map(renderRecipeCard))
+  const count = visibleRecipes.length
+  resultsSummary.textContent = count
+    ? `Знайдено рецептів: ${count}`
+    : 'За вашим запитом рецептів не знайдено.'
+}
+
+async function loadRecipes(): Promise<void> {
+  loadingState.hidden = false
+  errorState.hidden = true
+  recipeGrid.setAttribute('aria-busy', 'true')
+
+  try {
+    const response = await fetchRecipes()
+    recipes = response.recipes
+    renderRecipes()
+  } catch (error) {
+    console.error('Failed to load recipes:', error)
+    errorMessage.textContent =
+      'Не вдалося завантажити рецепти. Перевірте з’єднання з інтернетом і спробуйте ще раз.'
+    errorState.hidden = false
+    resultsSummary.textContent = ''
+  } finally {
+    loadingState.hidden = true
+    recipeGrid.setAttribute('aria-busy', 'false')
+  }
+}
+
+function updateThemeToggle(isDark: boolean): void {
+  document.documentElement.dataset.theme = isDark ? 'dark' : 'light'
+  themeToggle.textContent = isDark ? 'Світла тема' : 'Темна тема'
+  themeToggle.setAttribute('aria-pressed', String(isDark))
+}
+
+recipeControls.addEventListener('submit', (event) => {
+  event.preventDefault()
+})
+searchInput.addEventListener('input', renderRecipes)
+difficultyFilter.addEventListener('change', renderRecipes)
+sortSelect.addEventListener('change', renderRecipes)
+
+themeToggle.addEventListener('click', () => {
+  const isDark = document.documentElement.dataset.theme !== 'dark'
+  updateThemeToggle(isDark)
+})
+
+getElement<HTMLButtonElement>('#retry-button').addEventListener('click', () => {
+  void loadRecipes()
+})
+
+getElement<HTMLButtonElement>('#dialog-close').addEventListener('click', () => {
+  recipeDialog.close()
+})
+
+recipeDialog.addEventListener('click', (event) => {
+  if (event.target === recipeDialog) {
+    recipeDialog.close()
+  }
+})
+
+updateThemeToggle(window.matchMedia('(prefers-color-scheme: dark)').matches)
+void loadRecipes()
