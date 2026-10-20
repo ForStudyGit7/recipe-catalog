@@ -140,4 +140,4 @@ but a formatting script is not currently defined in `package.json`.
 
 ## Deployment
 
-**Deployed application URL:** _Add the deployment URL here._
+**Deployed application URL:** https://recipe-catalog-flax.vercel.app
